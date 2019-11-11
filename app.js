@@ -25,7 +25,6 @@ http.createServer((request, response) => {
 }).listen(8080);
 
 function postToSlack() {
-  var reported_location;
   var status_text;
   var status_emoji;
   
@@ -43,9 +42,7 @@ function postToSlack() {
       status_emoji = "";
   }
   
-
-  
-  var json_data = {
+  var json_payload = {
     "profile": {
       "status_text": status_text,
       "status_emoji": status_emoji,
@@ -63,11 +60,11 @@ function postToSlack() {
       "Authorization": "Bearer " + slackToken
     },
     json: true,
-    body: json_data,
+    body: json_payload,
   };
   request(slack_api_url, request_options, (err, res, body) => {
   if (err) { return console.log(err); }
-  console.log(body);
+  // console.log(body);
 });
 }
 
