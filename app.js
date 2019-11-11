@@ -26,21 +26,29 @@ http.createServer((request, response) => {
 
 function postToSlack() {
   var reported_location;
-
+  var status_text;
+  var status_emoji;
+  
   switch(response_object.location) {
     case "richmond":
-      reported_location = "Richmond"
+      status_text = "Currently at Richmond";
+      status_emoji = ":office:";
       break;
     case "spadina":
-      reported_location = "Spadina"
+      status_text = "Currently at Spadina";
+      status_emoji = ":office:";
       break;
     default:
+      status_text = "";
+      status_emoji = "";
   }
+  
 
+  
   var json_data = {
     "profile": {
-      "status_text": "Currently at " + reported_location,
-      "status_emoji": ":office:",
+      "status_text": status_text,
+      "status_emoji": status_emoji,
       "status_expiration": 0,
     }
   };
@@ -59,7 +67,7 @@ function postToSlack() {
   };
   request(slack_api_url, request_options, (err, res, body) => {
   if (err) { return console.log(err); }
-  // console.log(body);
+  console.log(body);
 });
 }
 
