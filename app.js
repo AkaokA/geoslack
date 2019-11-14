@@ -25,31 +25,34 @@ http.createServer((request, response) => {
 }).listen(8080);
 
 function postToSlack() {
-  var reported_location;
   var status_text;
   var status_emoji;
   
   switch(response_object.location) {
     case "richmond":
-      status_text = "Currently at Richmond";
-      status_emoji = ":office:";
+      status_text = "Richmond office";
+      status_emoji = ":rtrain:";
       break;
     case "spadina":
-      status_text = "Currently at Spadina";
-      status_emoji = ":office:";
+      status_text = "Spadina office";
+      status_emoji = ":strain:";
       break;
     default:
       status_text = "";
       status_emoji = "";
   }
   
-
+  var expiration = new Date();
+  expiration.setHours(20);
+  expiration.setMinutes(0);
+  expiration.setSeconds(0);
+  expiration = expiration.getTime();
   
-  var json_data = {
+  var json_payload = {
     "profile": {
       "status_text": status_text,
       "status_emoji": status_emoji,
-      "status_expiration": 0,
+      "status_expiration": expiration,
     }
   };
 
@@ -63,7 +66,7 @@ function postToSlack() {
       "Authorization": "Bearer " + slackToken
     },
     json: true,
-    body: json_data,
+    body: json_payload,
   };
   request(slack_api_url, request_options, (err, res, body) => {
   if (err) { return console.log(err); }
@@ -71,4 +74,4 @@ function postToSlack() {
 });
 }
 
-// curl -i -X POST -H 'Content-Type: application/json' -d '{"location": "richmond"}' http://localhost:8080
+// curl -i -X POST -H 'Content-Type: application/json' -d '{"location": "richmond"}' https://akaoka-geoslack.glitch.me
