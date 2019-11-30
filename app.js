@@ -1,11 +1,12 @@
 const request = require("request");
-const express = require('express')
+const express = require('express');
+const dotenv = require('dotenv');
 
 // Read from the environment variables
-var slack_access_token = process.env.SLACK_TOKEN;
+dotenv.config();
 const slack_client_id = process.env.CLIENT_ID;
 const slack_client_secret = process.env.CLIENT_SECRET;
-
+const redirect = process.env.REDIRECT_URI;
 
 const app = express();
 const port = 3000;
