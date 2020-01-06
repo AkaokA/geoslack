@@ -1,50 +1,71 @@
-const http = require("http");
-const url = require("url");
 const request = require("request");
+const express = require('express');
+const dotenv = require('dotenv');
 
 // Read from the environment variables
-var slack_access_token = process.env.SLACK_TOKEN;
+dotenv.config();
 const slack_client_id = process.env.CLIENT_ID;
 const slack_client_secret = process.env.CLIENT_SECRET;
+const redirect = process.env.REDIRECT_URI;
 
-http
-  .createServer((request, response) => {
-    if (request.method === "GET" && request.url.includes("/auth")) {
-      // Request slack API user token via OAuth
-      response.writeHead(200);
-      const parsedUrl = url.parse(request.url, true);
-      var slack_verification_code = parsedUrl.query.code;
-      getAccessToken(slack_verification_code);
-      response.end(
-        "Access token received"
-      );
-    } else if (request.method === "POST") {
-      // Send Slack API request to update user's slack status
-      let body = [];
-      request
-        .on("data", chunk => {
-          body.push(chunk);
-        })
-        .on("end", () => {
-          body = Buffer.concat(body).toString();
-          const response_object = JSON.parse(body);
-          console.log("HTTP POST received:\n", response_object);
-          postToSlack(response_object);
-          response.end(body);
-        });
+const app = express();
+const port = 3000;
+
+app.use(express.json());
+
+/* 
+============================
+Routes                       
+============================
+*/
+
+app.get('/auth', (req, res) => {
+  var path = new URL('https://slack.com/oauth/authorize')
+  path.search = auth_query
+  res.redirect(path)
+})
+
+const auth_query = `client_id=${slack_client_id}&redirect_uri=${redirect}&scope=users.profile:write`
+app.get('/process_auth', (req, res) => {
+  getAccessToken(req.query.code, (err, tokenRes, body) => {
+    if (err) {
+      res.send(`Error: ${err}`)
     } else {
-      // any other request
-      response.end("invalid request: " + request.url.toString());
+      const auth_response = JSON.parse(body)
+      const code = auth_response.access_token
+      res.send(`<h1>Copy this code and use it in your shortcut</h1><p>${code}</p>`)
     }
   })
-  .listen(8080);
+})
 
-function getAccessToken(slack_verification_code) {
+app.post('/status', (req, res) => {
+  const {token, location} = req.body
+  postToSlack(token, location, (error, slackResponse, body) => {
+    if (error) {
+      console.log(error)
+      res.json(error)
+    } else {
+      res.json(body)    
+    }
+  })
+})
+
+app.listen(port, ()=> console.log('awake...'));
+
+
+/* 
+============================
+Slack API Wrapper                       
+============================
+*/
+
+function getAccessToken(slack_verification_code, callback) {
   const slack_oauth_url = "https://slack.com/api/oauth.access";
   const query = new URLSearchParams({
     client_id: slack_client_id,
     client_secret: slack_client_secret,
-    code: slack_verification_code
+    code: slack_verification_code,
+    redirect_uri: redirect
   }).toString();
 
   var request_options = {
@@ -54,20 +75,10 @@ function getAccessToken(slack_verification_code) {
     },
     body: query
   };
-  request(slack_oauth_url, request_options, (err, res, body) => {
-    if (err) {
-      return console.log(err);
-    }
-    const oauth_response = JSON.parse(body);
-    slack_access_token = oauth_response.access_token;
-    console.log("Access token received: ", slack_access_token);
-
-  });
+  request(slack_oauth_url, request_options, callback)
 }
 
-function postToSlack(request_body) {
-  const user_token = slack_access_token;
-
+function postToSlack(token, location, callback) {
   var status_text;
   var status_emoji;
   var status_expiration;
@@ -79,7 +90,7 @@ function postToSlack(request_body) {
   expiration.setSeconds(0);
   expiration = Math.round(expiration.getTime() / 1000); // convert ms to seconds for Slack API
 
-  switch (request_body.location) {
+  switch (location) {
     case "richmond":
       status_text = "Richmond office";
       status_emoji = ":rtrain:";
@@ -120,25 +131,12 @@ function postToSlack(request_body) {
       "Content-Type": "application/json; charset=utf-8"
     },
     headers: {
-      Authorization: "Bearer " + user_token
+      Authorization: "Bearer " + token
     },
     json: true,
     body: json_payload
   };
-  request(slack_api_url, request_options, (err, res, body) => {
-    if (err) {
-      return console.log(err);
-    }
-    console.log(
-      "updated " +
-        body.profile.first_name +
-        " " +
-        body.profile.last_name +
-        "'s status:",
-      body.profile.status_emoji,
-      body.profile.status_text
-    );
-  });
+  request(slack_api_url, request_options, callback)
 }
 
 // curl -i -X POST -H 'Content-Type: application/json' -d '{"location": "richmond"}' https://akaoka-geoslack.glitch.me
